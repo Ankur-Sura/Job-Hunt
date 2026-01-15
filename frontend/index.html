@@ -1,0 +1,71 @@
+<!--
+===================================================================================
+                    INDEX.HTML - Main HTML Entry Point
+===================================================================================
+
+📖 WHAT IS THIS FILE?
+--------------------
+This is the main HTML file that serves as the entry point for the React application.
+It's the only HTML file in the project - React renders everything else dynamically.
+
+🔗 HOW IT WORKS:
+---------------
+1. Browser loads this HTML file
+2. React application (main.jsx) is loaded via script tag
+3. React renders all components into the <div id="root"> element
+4. All routing and UI is handled by React (no page refreshes)
+
+📌 WHAT HAPPENS WHEN:
+--------------------
+- User visits website → Browser loads this HTML
+- React app initializes → Renders App component into #root
+- User navigates → React Router changes URL and renders different components
+- No page reloads → Single Page Application (SPA) behavior
+
+===================================================================================
+-->
+
+<!-- DOCTYPE declaration - tells browser this is HTML5 -->
+<!DOCTYPE html>
+<!-- html element - root element of the HTML document -->
+<!-- lang="en" - specifies the language is English (helps with accessibility and SEO) -->
+<html lang="en">
+  <!-- head section - contains metadata about the document (not visible to users) -->
+  <head>
+    <!-- meta charset - specifies character encoding (UTF-8 supports all characters) -->
+    <!-- This ensures special characters, emojis, and international text display correctly -->
+    <meta charset="UTF-8" />
+    
+    <!-- link rel="icon" - sets the favicon (small icon shown in browser tab) -->
+    <!-- type="image/svg+xml" - specifies the icon is an SVG file -->
+    <!-- href="/vite.svg" - path to the favicon file (Vite's default icon) -->
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    
+    <!-- meta viewport - essential for responsive design on mobile devices -->
+    <!-- width=device-width - sets viewport width to device width -->
+    <!-- initial-scale=1.0 - sets initial zoom level to 100% (no zoom) -->
+    <!-- Without this, mobile browsers might render the page at desktop width and zoom out -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    
+    <!-- title - text shown in browser tab and bookmarks -->
+    <!-- This is what users see when they bookmark the page -->
+    <title>Job Hunt - Job Portal</title>
+  </head>
+  
+  <!-- body section - contains all visible content -->
+  <body>
+    <!-- div with id="root" - this is where React will render the entire application -->
+    <!-- ReactDOM.createRoot(document.getElementById('root')) in main.jsx targets this element -->
+    <!-- All React components (Header, Dashboard, Jobs, etc.) will be rendered inside this div -->
+    <!-- Initially empty - React fills it when the app loads -->
+    <div id="root"></div>
+    
+    <!-- script tag - loads and executes the React application -->
+    <!-- type="module" - enables ES6 module syntax (import/export) -->
+    <!-- src="/src/main.jsx" - path to the main React entry point file -->
+    <!-- This script runs when the page loads and initializes the React app -->
+    <!-- Vite (build tool) processes this JSX file and serves it to the browser -->
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
+

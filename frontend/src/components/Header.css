@@ -1,0 +1,91 @@
+/* Line 1: Header component class
+   Purpose: Styles the navigation header that appears at top of all pages */
+.header {
+  /* Line 2: Set background color to white
+     Why: Makes header stand out from page content */
+  background: white;
+  /* Line 3: Add subtle shadow below header
+     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) = Shadow with 2px vertical offset, 4px blur, 10% opacity
+     Why: Creates depth and separation from content below */
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  /* Line 4: Add padding of 1rem (16px) top/bottom and 2rem (32px) left/right
+     Why: Provides space around header content */
+  padding: 1rem 2rem;
+  /* Line 5: Make header stick to top when scrolling
+     position: sticky = Element sticks to viewport when scrolling past it */
+  position: sticky;
+  /* Line 6: Stick header at top of viewport (0 pixels from top)
+     Why: Header stays visible when user scrolls down page */
+  top: 0;
+  /* Line 7: Set z-index to 100 (higher than other elements)
+     Why: Ensures header appears above other content when scrolling */
+  z-index: 100;
+}
+
+.header-container {
+  max-width: 1400px;
+  margin: 0 auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.logo {
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: #14b8a6;
+  text-decoration: none;
+  background: #e0f2f1;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+}
+
+.nav {
+  display: flex;
+  gap: 2rem;
+}
+
+.nav a {
+  text-decoration: none;
+  color: #333;
+  font-weight: 500;
+  transition: color 0.2s;
+}
+
+.nav a:hover {
+  color: #14b8a6;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.user-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: #ef4444;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+}
+
+.logout-btn {
+  background: #14b8a6;
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: background 0.2s;
+}
+
+.logout-btn:hover {
+  background: #0d9488;
+}
+

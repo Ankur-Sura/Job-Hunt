@@ -1,0 +1,350 @@
+/* Line 1: Dashboard container class
+   Purpose: Main wrapper for dashboard page */
+.dashboard {
+  /* Line 2: Set minimum height to full viewport height (100vh = 100% of screen height)
+     Why: Ensures dashboard takes up at least full screen, even if content is short */
+  min-height: 100vh;
+  /* Line 3: Set background color to light gray (#f5f5f5)
+     Why: Provides subtle background that makes white content cards stand out */
+  background: #f5f5f5;
+}
+
+/* Line 6: Dashboard container class
+   Purpose: Centers content and limits maximum width */
+.dashboard-container {
+  /* Line 7: Set maximum width to 1400 pixels
+     Why: Prevents content from being too wide on large screens, improves readability */
+  max-width: 1400px;
+  /* Line 8: Center container horizontally
+     margin: 0 auto = 0 margin top/bottom, auto margin left/right (centers element) */
+  margin: 0 auto;
+  /* Line 9: Add padding of 2rem (32px) on all sides
+     Why: Provides space between content and screen edges */
+  padding: 2rem;
+}
+
+.dashboard-layout {
+  display: grid;
+  grid-template-columns: 350px 1fr;
+  gap: 2rem;
+}
+
+.dashboard-left {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.profile-card {
+  background: white;
+  border-radius: 8px;
+  padding: 1.5rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.profile-avatar {
+  width: 100px;
+  height: 100px;
+  border-radius: 8px;
+  background: #14b8a6;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2.5rem;
+  font-weight: bold;
+  margin: 0 auto 1rem;
+}
+
+.profile-card h3 {
+  text-align: center;
+  margin-bottom: 0.5rem;
+  color: #333;
+}
+
+.user-role {
+  text-align: center;
+  color: #666;
+  margin-bottom: 1rem;
+}
+
+.profile-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.btn-edit,
+.btn-share {
+  flex: 1;
+  padding: 0.5rem;
+  border: 1px solid #14b8a6;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.btn-edit {
+  background: #14b8a6;
+  color: white;
+}
+
+.btn-share {
+  background: white;
+  color: #14b8a6;
+}
+
+.resume-section {
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid #eee;
+}
+
+.resume-section h4 {
+  margin-bottom: 0.75rem;
+  color: #333;
+}
+
+.resume-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.btn-update,
+.btn-view {
+  padding: 0.4rem 0.8rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background: white;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.btn-icon {
+  padding: 0.4rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background: white;
+  cursor: pointer;
+}
+
+.resume-visibility {
+  font-size: 0.85rem;
+  color: #666;
+}
+
+.resume-visibility a {
+  color: #14b8a6;
+  text-decoration: none;
+}
+
+.profile-completion {
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid #eee;
+}
+
+.profile-completion h4 {
+  margin-bottom: 0.75rem;
+  color: #333;
+}
+
+.completion-percentage {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  color: #333;
+}
+
+.progress-bar {
+  width: 100%;
+  height: 8px;
+  background: #eee;
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 0.5rem;
+}
+
+.progress-fill {
+  height: 100%;
+  background: #ef4444;
+  transition: width 0.3s;
+}
+
+.recruiter-notice {
+  font-size: 0.85rem;
+  color: #666;
+  margin-bottom: 1rem;
+}
+
+.completion-items {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.completion-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.9rem;
+}
+
+.btn-add {
+  padding: 0.25rem 0.75rem;
+  border: 1px solid #14b8a6;
+  border-radius: 4px;
+  background: white;
+  color: #14b8a6;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+.dashboard-right {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.recommendations-card,
+.performance-card,
+.activities-card {
+  background: white;
+  border-radius: 8px;
+  padding: 1.5rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.recommendations-card h3,
+.performance-card h3,
+.activities-card h3 {
+  margin-bottom: 1rem;
+  color: #333;
+}
+
+.recommendations-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.recommendation-item {
+  border: 1px solid #eee;
+  border-radius: 8px;
+  padding: 1rem;
+}
+
+.job-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.job-header h4 {
+  color: #333;
+  font-size: 1.1rem;
+}
+
+.fit-score {
+  background: #10b981;
+  color: white;
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.company {
+  font-weight: 600;
+  color: #666;
+  margin-bottom: 0.25rem;
+}
+
+.location,
+.salary,
+.experience {
+  color: #666;
+  font-size: 0.9rem;
+  margin-bottom: 0.25rem;
+}
+
+.tag-new {
+  display: inline-block;
+  background: #10b981;
+  color: white;
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.job-footer {
+  margin-top: 0.5rem;
+  color: #999;
+  font-size: 0.85rem;
+}
+
+.performance-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
+}
+
+.performance-item {
+  text-align: center;
+  padding: 1rem;
+  border: 1px solid #eee;
+  border-radius: 8px;
+}
+
+.performance-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #14b8a6;
+  margin-bottom: 0.5rem;
+}
+
+.performance-label {
+  font-size: 0.85rem;
+  color: #666;
+}
+
+.btn-streak {
+  background: #14b8a6;
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+  margin-bottom: 1rem;
+}
+
+.activities-count {
+  color: #666;
+  margin-bottom: 1rem;
+}
+
+.activity-calendar {
+  min-height: 200px;
+  border: 1px solid #eee;
+  border-radius: 4px;
+  padding: 1rem;
+  text-align: center;
+  color: #999;
+}
+
+.no-resume-message {
+  padding: 2rem;
+  text-align: center;
+  color: #666;
+}
+
+@media (max-width: 1024px) {
+  .dashboard-layout {
+    grid-template-columns: 1fr;
+  }
+}
+

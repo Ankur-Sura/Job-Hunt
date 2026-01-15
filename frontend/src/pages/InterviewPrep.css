@@ -1,0 +1,140 @@
+.interview-prep-page {
+  min-height: 100vh;
+  background: #f5f5f5;
+}
+
+.interview-prep-container {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+.interview-header {
+  background: white;
+  border-radius: 8px;
+  padding: 2rem;
+  margin-bottom: 2rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.interview-header h1 {
+  font-size: 2rem;
+  color: #333;
+  margin-bottom: 0.5rem;
+}
+
+.job-info {
+  font-size: 1.2rem;
+  color: #666;
+  margin-bottom: 1rem;
+}
+
+.fit-score-badge {
+  display: inline-block;
+  background: #10b981;
+  color: white;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  font-weight: 600;
+}
+
+.preparation-content {
+  background: white;
+  border-radius: 8px;
+  padding: 2rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  margin-bottom: 2rem;
+}
+
+.preparation-text {
+  line-height: 1.8;
+  color: #333;
+}
+
+.preparation-text h2 {
+  color: #14b8a6;
+  margin-top: 2rem;
+  margin-bottom: 1rem;
+  font-size: 1.5rem;
+}
+
+.preparation-text h2:first-child {
+  margin-top: 0;
+}
+
+.preparation-text p {
+  margin-bottom: 1rem;
+}
+
+.preparation-text ul,
+.preparation-text ol {
+  margin-left: 2rem;
+  margin-bottom: 1rem;
+}
+
+.preparation-text li {
+  margin-bottom: 0.5rem;
+}
+
+.interview-actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+}
+
+.btn-back,
+.btn-print {
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  font-weight: 500;
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: none;
+  font-size: 1rem;
+}
+
+.btn-back {
+  background: #e5e7eb;
+  color: #333;
+}
+
+.btn-back:hover {
+  background: #d1d5db;
+}
+
+.btn-print {
+  background: #14b8a6;
+  color: white;
+}
+
+.btn-print:hover {
+  background: #0d9488;
+}
+
+.loading,
+.error {
+  text-align: center;
+  padding: 3rem;
+  font-size: 1.2rem;
+}
+
+.error {
+  color: #ef4444;
+}
+
+@media print {
+  .interview-prep-page {
+    background: white;
+  }
+
+  .header,
+  .interview-actions {
+    display: none;
+  }
+
+  .preparation-content {
+    box-shadow: none;
+  }
+}
+
