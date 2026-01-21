@@ -30,7 +30,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
 import Header from '../components/Header';
@@ -55,6 +55,7 @@ const RecruiterDashboard = () => {
   
   const { user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   
   // State: List of jobs posted by recruiter
   const [jobs, setJobs] = useState([]);
@@ -81,6 +82,21 @@ const RecruiterDashboard = () => {
   
   // State: Loading AI recommendation
   const [loadingAIRecommendation, setLoadingAIRecommendation] = useState(null); // applicationId being analyzed
+
+  /**
+   * =============================================================================
+   *                     RESET STATE ON NAVIGATION
+   * =============================================================================
+   * When user clicks "Dashboard" link, reset to jobs view
+   */
+  useEffect(() => {
+    // Reset to jobs view when navigating to this page
+    setSelectedJob(null);
+    setCandidates([]);
+    setSelectedCandidate(null);
+    setAnalysisResults({});
+    setAiRecommendations({});
+  }, [location.key]);
 
   /**
    * =============================================================================
@@ -170,6 +186,14 @@ const RecruiterDashboard = () => {
   const analyzeResume = async (applicationId) => {
     try {
       setAnalyzing(applicationId);
+      
+      // Clear AI Recommendation when Analyze Resume is clicked (separate views)
+      setAiRecommendations(prev => {
+        const updated = { ...prev };
+        delete updated[applicationId];
+        return updated;
+      });
+      
       const response = await axios.post(`/api/hirer/analyze-resume/${applicationId}`);
       
       setAnalysisResults(prev => ({
@@ -212,16 +236,14 @@ const RecruiterDashboard = () => {
     try {
       setLoadingAIRecommendation(applicationId);
       
-      // Check if we already have ATS and project analysis
-      const existingAnalysis = analysisResults[applicationId];
-      const requestBody = existingAnalysis ? {
-        existing_analysis: {
-          atsAnalysis: existingAnalysis.atsAnalysis,
-          projectAnalysis: existingAnalysis.projectAnalysis
-        }
-      } : {};
+      // Clear Analyze Resume results when AI Suggestion is clicked (separate views)
+      setAnalysisResults(prev => {
+        const updated = { ...prev };
+        delete updated[applicationId];
+        return updated;
+      });
       
-      const response = await axios.post(`/api/hirer/ai-recommendation/${applicationId}`, requestBody, {
+      const response = await axios.post(`/api/hirer/ai-recommendation/${applicationId}`, {}, {
         timeout: 300000 // 5 minutes for LangGraph workflow
       });
       
@@ -230,23 +252,10 @@ const RecruiterDashboard = () => {
         [applicationId]: response.data
       }));
       
-      // Also update analysis results if available
-      if (response.data.atsAnalysis && response.data.projectAnalysis) {
-        setAnalysisResults(prev => ({
-          ...prev,
-          [applicationId]: {
-            ...prev[applicationId],
-            atsAnalysis: response.data.atsAnalysis,
-            projectAnalysis: response.data.projectAnalysis
-          }
-        }));
-      }
-      
       // Show candidate details with AI recommendation
       const candidate = candidates.find(c => c.applicationId === applicationId);
       setSelectedCandidate({
         ...candidate,
-        analysis: response.data,
         aiRecommendation: response.data
       });
     } catch (error) {
@@ -793,23 +802,30 @@ const RecruiterDashboard = () => {
                         </div>
                       )}
 
-                      {/* Analysis Results */}
-                      {analysis && (
+                      {/* Analysis Results - From "Analyze Resume" Button */}
+                      {analysis && analysis.atsAnalysis && (
                         <div className="mt-6 pt-6 border-t space-y-4">
+                          {/* Section Header */}
+                          <div className="flex items-center gap-2 mb-2">
+                            <FaFileAlt className="text-blue-600 text-lg" />
+                            <h3 className="font-bold text-gray-800 text-lg">Resume Analysis</h3>
+                            <span className="text-xs text-gray-500 ml-auto">(from Analyze Resume)</span>
+                          </div>
+                          
                           {/* ATS Analysis */}
                           <div className="bg-blue-50 rounded-lg p-4">
                             <div className="flex items-center gap-2 mb-2">
                               <FaChartLine className="text-blue-600" />
                               <h4 className="font-semibold text-gray-800">ATS Compatibility</h4>
                               <span className={`ml-auto px-2 py-1 rounded text-xs font-medium ${
-                                analysis.atsAnalysis.isATSFriendly 
+                                analysis.atsAnalysis?.isATSFriendly 
                                   ? 'bg-green-100 text-green-800' 
                                   : 'bg-red-100 text-red-800'
                               }`}>
-                                {analysis.atsAnalysis.score}% - {analysis.atsAnalysis.isATSFriendly ? 'ATS Friendly' : 'Needs Improvement'}
+                                {analysis.atsAnalysis?.score || 0}% - {analysis.atsAnalysis?.isATSFriendly ? 'ATS Friendly' : 'Needs Improvement'}
                               </span>
                             </div>
-                            {analysis.atsAnalysis.strengths?.length > 0 && (
+                            {analysis.atsAnalysis?.strengths?.length > 0 && (
                               <div className="mb-2">
                                 <p className="text-xs font-medium text-gray-700 mb-1">Strengths:</p>
                                 <ul className="text-xs text-gray-600 list-disc list-inside">
@@ -819,7 +835,7 @@ const RecruiterDashboard = () => {
                                 </ul>
                               </div>
                             )}
-                            {analysis.atsAnalysis.improvements?.length > 0 && (
+                            {analysis.atsAnalysis?.improvements?.length > 0 && (
                               <div>
                                 <p className="text-xs font-medium text-gray-700 mb-1">Improvements:</p>
                                 <ul className="text-xs text-gray-600 list-disc list-inside">
@@ -832,35 +848,37 @@ const RecruiterDashboard = () => {
                           </div>
 
                           {/* Project Analysis */}
-                          <div className="bg-purple-50 rounded-lg p-4">
-                            <div className="flex items-center gap-2 mb-2">
-                              <FaCode className="text-purple-600" />
-                              <h4 className="font-semibold text-gray-800">Project Relevance</h4>
-                              <span className={`ml-auto px-2 py-1 rounded text-xs font-medium ${
-                                analysis.projectAnalysis.usefulForCompany 
-                                  ? 'bg-green-100 text-green-800' 
-                                  : 'bg-yellow-100 text-yellow-800'
-                              }`}>
-                                {analysis.projectAnalysis.usefulForCompany ? 'Useful for Company' : 'Review Needed'}
-                              </span>
-                            </div>
-                            {analysis.projectAnalysis.relevantProjects?.length > 0 && (
-                              <div className="space-y-2">
-                                {analysis.projectAnalysis.relevantProjects.slice(0, 3).map((project, i) => (
-                                  <div key={i} className="bg-white rounded p-2">
-                                    <p className="text-xs font-medium text-gray-800">{project.name}</p>
-                                    <p className="text-xs text-gray-600">Relevance: {project.relevanceScore}%</p>
-                                    {project.reasons && (
-                                      <p className="text-xs text-gray-500 mt-1">
-                                        {project.reasons.slice(0, 1).join(', ')}
-                                      </p>
-                                    )}
-                                  </div>
-                                ))}
+                          {analysis.projectAnalysis && (
+                            <div className="bg-purple-50 rounded-lg p-4">
+                              <div className="flex items-center gap-2 mb-2">
+                                <FaCode className="text-purple-600" />
+                                <h4 className="font-semibold text-gray-800">Project Relevance</h4>
+                                <span className={`ml-auto px-2 py-1 rounded text-xs font-medium ${
+                                  analysis.projectAnalysis?.usefulForCompany 
+                                    ? 'bg-green-100 text-green-800' 
+                                    : 'bg-yellow-100 text-yellow-800'
+                                }`}>
+                                  {analysis.projectAnalysis?.usefulForCompany ? 'Useful for Company' : 'Review Needed'}
+                                </span>
                               </div>
-                            )}
-                            <p className="text-xs text-gray-600 mt-2">{analysis.projectAnalysis.summary}</p>
-                          </div>
+                              {analysis.projectAnalysis?.relevantProjects?.length > 0 && (
+                                <div className="space-y-2">
+                                  {analysis.projectAnalysis.relevantProjects.slice(0, 3).map((project, i) => (
+                                    <div key={i} className="bg-white rounded p-2">
+                                      <p className="text-xs font-medium text-gray-800">{project.name}</p>
+                                      <p className="text-xs text-gray-600">Relevance: {project.relevanceScore}%</p>
+                                      {project.reasons && (
+                                        <p className="text-xs text-gray-500 mt-1">
+                                          {project.reasons.slice(0, 1).join(', ')}
+                                        </p>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                              <p className="text-xs text-gray-600 mt-2">{analysis.projectAnalysis?.summary}</p>
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>

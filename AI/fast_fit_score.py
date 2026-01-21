@@ -126,117 +126,46 @@ async def batch_calculate_fit_scores(request: JobMatchRequest):
 
 async def process_batch(resume_data: Dict, jobs: List[Dict]) -> List[Dict]:
     """
-    Process a batch of jobs (up to 20) in a single LLM call for speed.
-    Optimized for parallel processing.
+    Process a batch of jobs in a single LLM call - OPTIMIZED FOR SPEED.
     """
-    # Create a compact summary of resume
+    # Create compact resume summary
     resume_summary = create_resume_summary(resume_data)
     
-    # Create job summaries
+    # Create minimal job summaries
     job_summaries = []
     for job in jobs:
         job_summaries.append({
             "id": str(job.get("_id", "")),
             "title": job.get("title", ""),
-            "company": job.get("company", ""),
-            "skills": job.get("skills", []),
-            "experience": job.get("experience", {}).get("display", ""),
-            "description": job.get("description", "")[:300]  # First 300 chars (optimized for speed)
+            "skills": job.get("skills", [])[:8],  # Top 8 skills only
+            "exp": job.get("experience", {}).get("display", "0-1 years")
         })
     
-    # Single optimized prompt for all jobs
-    batch_prompt = f"""
-You are a STRICT and REALISTIC recruiter. Analyze this candidate's resume against multiple job positions and calculate ACCURATE fit scores.
+    # OPTIMIZED SHORT PROMPT - Much faster!
+    batch_prompt = f"""Score resume against jobs. Be STRICT and REALISTIC.
 
-CANDIDATE RESUME SUMMARY:
+RESUME:
 {resume_summary}
 
-JOBS TO ANALYZE:
-{json.dumps(job_summaries, indent=2)}
+JOBS:
+{json.dumps(job_summaries)}
 
-⚠️ CRITICAL SCORING RULES - BE STRICT AND REALISTIC:
+SCORING (weights): Skills=40%, Experience=30%, Education=20%, Alignment=10%
+- Projects ≠ work experience (projects = 25% value of real exp)
+- No exp + entry job (0-1yr) = 50-65%
+- No exp + mid job (2-3yr) = 30-45%
+- Matching exp = 70-85%
 
-1. **Skills Match (40% weight)**
-   - Only count skills explicitly mentioned in resume
-   - Partial matches (e.g., "JS" vs "JavaScript") count as 70%
-   - Missing critical skills = major penalty
-   - Non-tech skills (sales, marketing, nursing, etc.) do NOT count for IT jobs
-
-2. **Experience Match (30% weight)** - MOST IMPORTANT FOR ACCURACY
-   - ⚠️ DOMAIN/FIELD MISMATCH = CRITICAL PENALTY ⚠️
-   - If candidate's experience is in a DIFFERENT FIELD (e.g., healthcare, sales, retail, teaching, nursing, banking operations), their experience does NOT count for tech jobs:
-     * Experience in non-tech field applying to tech job = 0-15% experience match
-     * Experience must be RELEVANT to the job domain
-   - Check job titles: "Nurse", "Teacher", "Sales Executive", "Accountant", "Bank Teller" = NOT IT experience
-   - IT experience includes: Developer, Engineer, Programmer, Data Analyst, QA, DevOps, DBA, IT Support, etc.
-   - REAL WORK EXPERIENCE = Jobs at companies with relevant titles
-   - PROJECTS ARE NOT WORK EXPERIENCE - they show potential but NOT professional experience
-   - If candidate has NO relevant work experience:
-     * For jobs requiring 0-1 years: Give 40-60% (if has relevant projects/skills)
-     * For jobs requiring 1-3 years: Give 20-40% (significant gap)
-     * For jobs requiring 3+ years: Give 0-20% (not qualified)
-   - Internships in relevant field count as 50% of real experience
-   - Projects count as 20-30% (shows skills, not professional work)
-
-3. **Education Match (20% weight)**
-   - Relevant degree in CS/IT/Engineering = 100%
-   - Related field (Math, Physics, Statistics) = 70-80%
-   - Unrelated field (Arts, Commerce, Nursing, etc.) = 30-50%
-   - No degree = 20-30%
-
-4. **Overall Alignment (10% weight)**
-   - Consider career trajectory, role fit, industry match
-   - Career switcher from unrelated field = lower alignment (30-50%)
-   - Candidate in same industry = higher alignment (70-90%)
-
-📊 REALISTIC SCORE RANGES:
-- Fresher (no experience) applying to entry-level (0-1 yr): 50-70%
-- Fresher applying to mid-level (2-3 yr): 30-50%
-- Fresher applying to senior (3+ yr): 20-40%
-- Experienced matching requirements: 70-90%
-- Perfect match: 85-95% (never give 100%)
-
-🚫 DO NOT:
-- Inflate scores because candidate has many projects
-- Give 80%+ to someone with no experience for roles needing experience
-- Treat projects as equivalent to work experience
-- Be overly generous - be REALISTIC
-
-Return ONLY a valid JSON object with a "scores" key containing an array in this exact format:
-{{
-  "scores": [
-    {{
-      "job_id": "job_id_1",
-      "fitScore": 65,
-      "breakdown": {{
-        "skillsMatch": 85,
-        "experienceMatch": 35,
-        "educationMatch": 70,
-        "overallAlignment": 60
-      }},
-      "strengths": ["Strong technical skills", "Relevant projects"],
-      "gaps": ["No professional work experience", "Missing required 2 years experience"],
-      "recommendation": "Consider"
-    }},
-    ...
-  ]
-}}
-
-IMPORTANT: 
-- Return ONLY the JSON object with "scores" array, no additional text
-- Include ALL jobs in the response
-- recommendation: "Highly recommended" (80%+), "Recommended" (65-79%), "Consider" (50-64%), "Not recommended" (<50%)
-- job_id must match the job ID from the input
-- BE STRICT about experience - projects ≠ work experience!
-"""
+Return JSON: {{"scores":[{{"job_id":"id","fitScore":0-100,"breakdown":{{"skillsMatch":0-100,"experienceMatch":0-100,"educationMatch":0-100,"overallAlignment":0-100}},"strengths":["max 2"],"gaps":["max 2"],"recommendation":"Highly recommended|Recommended|Consider|Not recommended"}}]}}"""
     
     try:
         response = client.chat.completions.create(
-            model="gpt-4o-mini",  # Fast model
+            model="gpt-4o-mini",
             response_format={"type": "json_object"},
             messages=[{"role": "user", "content": batch_prompt}],
-            temperature=0.3,  # Lower temperature for consistency
-            timeout=120.0  # 2 minute timeout per batch (increased for larger batches)
+            temperature=0.2,
+            max_tokens=500 * len(jobs),  # Limit response size
+            timeout=60.0  # Reduced timeout - faster model should respond quickly
         )
         
         result = json.loads(response.choices[0].message.content)
@@ -309,110 +238,45 @@ IMPORTANT:
 
 def create_resume_summary(resume_data: Dict) -> str:
     """
-    Create a compact summary of resume data for faster processing.
-    Clearly distinguishes between work experience and projects.
+    Create a COMPACT summary of resume data - OPTIMIZED FOR SPEED.
+    Minimal tokens, maximum information density.
     """
-    summary_parts = []
+    parts = []
     
-    # Skills
-    if resume_data.get("skills"):
-        skills = resume_data["skills"]
+    # Skills (top 12 only)
+    skills = resume_data.get("skills", [])
+    if skills:
         if isinstance(skills, list):
-            summary_parts.append(f"Skills: {', '.join(skills[:20])}")  # Top 20 skills
-        elif isinstance(skills, str):
-            summary_parts.append(f"Skills: {skills[:200]}")
-    
-    # Work Experience - CLEARLY LABELED WITH DOMAIN DETECTION
-    exp = resume_data.get("experience", [])
-    if isinstance(exp, list) and len(exp) > 0:
-        # Detect if experience is in IT/Tech or other field
-        it_keywords = ['developer', 'engineer', 'programmer', 'software', 'data', 'analyst', 
-                       'devops', 'qa', 'testing', 'frontend', 'backend', 'fullstack', 'web', 
-                       'mobile', 'cloud', 'database', 'dba', 'it', 'technical', 'tech', 'sde',
-                       'machine learning', 'ml', 'ai', 'python', 'java', 'coding']
-        non_it_keywords = ['nurse', 'nursing', 'teacher', 'teaching', 'sales', 'marketing',
-                          'accountant', 'accounting', 'bank', 'teller', 'cashier', 'retail',
-                          'healthcare', 'medical', 'doctor', 'receptionist', 'admin', 'clerk',
-                          'customer service', 'call center', 'bpo', 'hr', 'human resources']
-        
-        is_it_exp = False
-        is_non_it_exp = False
-        exp_titles = []
-        
-        for e in exp[:3]:
-            if isinstance(e, dict):
-                title = e.get("title", "").lower()
-                exp_titles.append(e.get("title", ""))
-                if any(kw in title for kw in it_keywords):
-                    is_it_exp = True
-                if any(kw in title for kw in non_it_keywords):
-                    is_non_it_exp = True
-        
-        # Determine experience domain
-        if is_non_it_exp and not is_it_exp:
-            domain_warning = "⚠️ NON-IT BACKGROUND - Experience is NOT in tech/IT field"
-        elif is_it_exp:
-            domain_warning = "✅ IT/Tech Background"
+            parts.append(f"Skills:{','.join(skills[:12])}")
         else:
-            domain_warning = "⚠️ Field unclear - verify if relevant to tech"
-        
-        summary_parts.append(f"⚠️ WORK EXPERIENCE: {len(exp)} professional positions ({domain_warning})")
-        for e in exp[:3]:
-                if isinstance(e, dict):
-                    title = e.get("title", "")
-                    company = e.get("company", "")
-                    duration = e.get("duration", "")
-                    summary_parts.append(f"  - {title} at {company} ({duration})")
-    else:
-        summary_parts.append("⚠️ WORK EXPERIENCE: NONE (No professional work experience)")
+            parts.append(f"Skills:{str(skills)[:100]}")
     
-    # Internships - Separate from experience
+    # Work Experience (compact format)
+    exp = resume_data.get("experience", [])
+    if isinstance(exp, list) and exp:
+        exp_str = ";".join([f"{e.get('title','')}" for e in exp[:2] if isinstance(e, dict)])
+        parts.append(f"Exp:{len(exp)}jobs[{exp_str}]")
+    else:
+        parts.append("Exp:NONE")
+    
+    # Internships
     internships = resume_data.get("internships", [])
-    if isinstance(internships, list) and len(internships) > 0:
-        summary_parts.append(f"Internships: {len(internships)} internship(s)")
-        for i in internships[:2]:
-            if isinstance(i, dict):
-                title = i.get("title", "")
-                company = i.get("company", "")
-                duration = i.get("duration", "")
-                summary_parts.append(f"  - {title} at {company} ({duration})")
-    else:
-        summary_parts.append("Internships: NONE")
+    if isinstance(internships, list) and internships:
+        parts.append(f"Intern:{len(internships)}")
     
-    # Projects - CLEARLY LABELED AS NOT EXPERIENCE
+    # Projects (count only)
     projects = resume_data.get("projects", [])
-    if isinstance(projects, list) and len(projects) > 0:
-        summary_parts.append(f"Projects (NOT work experience, shows skills only): {len(projects)} project(s)")
-        for p in projects[:3]:
-            if isinstance(p, dict):
-                name = p.get("name", "")
-                tech = p.get("technologies", [])
-                tech_str = ", ".join(tech[:5]) if isinstance(tech, list) else str(tech)[:50]
-                summary_parts.append(f"  - {name} (Tech: {tech_str})")
+    if isinstance(projects, list) and projects:
+        parts.append(f"Projects:{len(projects)}(not exp)")
     
-    # Education
-    if resume_data.get("education"):
-        edu = resume_data["education"]
-        if isinstance(edu, list):
-            for e in edu[:2]:  # Top 2 education
-                if isinstance(e, dict):
-                    degree = e.get("degree", "")
-                    institution = e.get("institution", "")
-                    summary_parts.append(f"Education: {degree} from {institution}")
+    # Education (compact)
+    edu = resume_data.get("education", [])
+    if edu:
+        if isinstance(edu, list) and edu:
+            e = edu[0] if isinstance(edu[0], dict) else {}
+            parts.append(f"Edu:{e.get('degree','')}@{e.get('institution','')[:20]}")
         elif isinstance(edu, str):
-            summary_parts.append(f"Education: {edu[:200]}")
+            parts.append(f"Edu:{edu[:50]}")
     
-    # Certifications
-    if resume_data.get("certifications"):
-        certs = resume_data["certifications"]
-        if isinstance(certs, list):
-            summary_parts.append(f"Certifications: {', '.join(certs[:5])}")
-        elif isinstance(certs, str):
-            summary_parts.append(f"Certifications: {certs[:200]}")
-    
-    # If no structured data, use raw text
-    if not summary_parts and resume_data.get("rawText"):
-        summary_parts.append(f"Resume Text: {resume_data['rawText'][:1000]}")
-    
-    return "\n".join(summary_parts) if summary_parts else "Resume data available"
+    return "|".join(parts) if parts else "No data"
 
