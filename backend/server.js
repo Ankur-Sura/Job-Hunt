@@ -110,7 +110,7 @@ const REQUEST_TIMEOUT = 30000;  // 30 seconds
  */
 // CORS configuration
 app.use(cors({
-  origin: ['http://localhost:5173', 'http://localhost:3000'],  // Allowed frontend URLs
+  origin: ['http://localhost:5174', 'http://localhost:5173', 'http://localhost:3000'],  // Allowed frontend URLs
   credentials: true  // Allow cookies/credentials in requests
 }));
 
@@ -174,7 +174,7 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use((req, res, next) => {
   // Check if this is a long-running endpoint (AI processing takes time)
   // These endpoints need longer timeout (5 minutes)
-  const longRunningPaths = ['/api/interview', '/api/resume/upload', '/api/ai'];
+  const longRunningPaths = ['/api/interview', '/api/resume/upload', '/api/ai', '/api/hirer/ai-recommendation', '/api/hirer/candidates'];
   const isLongRunning = longRunningPaths.some(path => req.path.startsWith(path));
   
   // Set timeout based on endpoint type

@@ -39,11 +39,7 @@ else
     echo "   Backend was not running"
 fi
 
-# Stop Frontend (ports 5173/5174)
-if lsof -ti:5173 > /dev/null 2>&1; then
-    lsof -ti:5173 | xargs kill -9 2>/dev/null
-    echo -e "${GREEN}✅ Frontend (5173) stopped${NC}"
-fi
+# Stop Frontend (port 5174)
 if lsof -ti:5174 > /dev/null 2>&1; then
     lsof -ti:5174 | xargs kill -9 2>/dev/null
     echo -e "${GREEN}✅ Frontend (5174) stopped${NC}"

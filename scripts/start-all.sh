@@ -93,12 +93,12 @@ start_backend() {
 
 # Function to start Frontend service
 start_frontend() {
-    if check_port 5173 || check_port 5174; then
-        echo -e "${YELLOW}⚠️  Frontend already running${NC}"
+    if check_port 5174; then
+        echo -e "${YELLOW}⚠️  Frontend already running on port 5174${NC}"
         return 0
     fi
     
-    echo -e "${GREEN}Starting Frontend...${NC}"
+    echo -e "${GREEN}Starting Frontend on port 5174...${NC}"
     cd "$PROJECT_ROOT/frontend"
     npm run dev -- --host > "$PROJECT_ROOT/logs/frontend.log" 2>&1 &
     FRONTEND_PID=$!
@@ -106,7 +106,7 @@ start_frontend() {
     cd "$PROJECT_ROOT"
     
     sleep 3  # Frontend takes a moment to start
-    echo -e "${GREEN}✅ Frontend starting (check http://localhost:5173)${NC}"
+    echo -e "${GREEN}✅ Frontend starting (check http://localhost:5174)${NC}"
 }
 
 # Create logs directory
@@ -124,7 +124,7 @@ echo "==========================================${NC}"
 echo ""
 echo -e "${GREEN}✅ AI Service:  http://localhost:8005${NC}"
 echo -e "${GREEN}✅ Backend:     http://localhost:8080${NC}"
-echo -e "${GREEN}✅ Frontend:    http://localhost:5173${NC}"
+echo -e "${GREEN}✅ Frontend:    http://localhost:5174${NC}"
 echo ""
 echo -e "${YELLOW}Logs are available in: $PROJECT_ROOT/logs/${NC}"
 echo ""

@@ -73,7 +73,7 @@ Job Portal Project/
 cd backend
 npm install
 cp .env.example .env
-# Edit .env with your MongoDB URI, JWT_SECRET, and other configuration
+# Edit .env with your MongoDB URI and JWT_SECRET
 npm start
 ```
 
@@ -84,8 +84,6 @@ Backend runs on `http://localhost:8080`
 ```bash
 cd frontend
 npm install
-cp .env.example .env
-# Edit .env if you need to change the API URL
 npm run dev
 ```
 
@@ -96,11 +94,7 @@ Frontend runs on `http://localhost:5173`
 ```bash
 cd AI
 pip install -r requirements.txt
-# Create virtual environment (recommended)
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-cp .env.example .env
-# Edit .env with OPENAI_API_KEY, QDRANT_URL, and other configuration
+# Create .env file with OPENAI_API_KEY and QDRANT_URL
 python main.py
 ```
 
@@ -123,37 +117,20 @@ docker run -p 6333:6333 qdrant/qdrant
 
 ## Environment Variables
 
-**Important:** Never commit `.env` files to version control. Use the provided `.env.example` files as templates.
-
 ### Backend (.env)
-Copy `backend/.env.example` to `backend/.env` and fill in your values:
 ```
 PORT=8080
 MONGODB_URI=mongodb://localhost:27017/jobportal
 JWT_SECRET=your-secret-key
 AI_SERVICE_URL=http://localhost:8001
 NODE_ENV=development
-FRONTEND_URL=http://localhost:5173
-CLOUD_NAME=your-cloudinary-cloud-name
-API_KEY=your-cloudinary-api-key
-API_SECRET=your-cloudinary-api-secret
-```
-
-### Frontend (.env)
-Copy `frontend/.env.example` to `frontend/.env`:
-```
-VITE_API_URL=http://localhost:8080/api
-VITE_NODE_ENV=development
 ```
 
 ### AI Service (.env)
-Copy `AI/.env.example` to `AI/.env` and fill in your values:
 ```
 OPENAI_API_KEY=sk-your-key-here
 QDRANT_URL=http://localhost:6333
 QDRANT_COLLECTION=learning_vectors
-TAVILY_API_KEY=tvly-your-key-here  # Optional
-EXA_API_KEY=your-exa-key-here       # Optional
 ```
 
 ## API Endpoints
@@ -252,62 +229,7 @@ EXA_API_KEY=your-exa-key-here       # Optional
    - Ensure file is PDF format
    - Verify AI service is accessible
 
-## GitHub Setup
-
-### Initial Setup
-
-1. **Initialize Git Repository** (if not already done):
-   ```bash
-   git init
-   ```
-
-2. **Add All Files**:
-   ```bash
-   git add .
-   ```
-
-3. **Create Initial Commit**:
-   ```bash
-   git commit -m "Initial commit: Job Hunt project"
-   ```
-
-4. **Create GitHub Repository**:
-   - Go to GitHub and create a new repository
-   - Don't initialize with README, .gitignore, or license (we already have these)
-
-5. **Connect and Push**:
-   ```bash
-   git remote add origin https://github.com/yourusername/job-hunt.git
-   git branch -M main
-   git push -u origin main
-   ```
-
-### Important Notes
-
-- ✅ `.env` files are automatically ignored (via `.gitignore`)
-- ✅ `node_modules/` and `venv/` are excluded
-- ✅ All sensitive data should be in `.env` files (never commit these)
-- ✅ Use `.env.example` files as templates for configuration
-
-### Before Pushing
-
-Make sure you've:
-- ✅ Created `.env` files from `.env.example` templates
-- ✅ Verified no sensitive data is in committed files
-- ✅ Tested that the project runs locally
-- ✅ Updated README with any project-specific information
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
-
 ## License
 
-MIT License - see [LICENSE](LICENSE) file for details
+MIT
 
