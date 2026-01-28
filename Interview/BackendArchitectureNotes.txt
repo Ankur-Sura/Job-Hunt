@@ -1,0 +1,577 @@
+===================================================================================
+                    🖥️ BACKEND ARCHITECTURE & IMPLEMENTATION
+===================================================================================
+
+📖 WHAT IS THIS?
+---------------
+This document explains the complete backend architecture, how each component works,
+and how they connect together.
+
+===================================================================================
+                         SECTION 1: OVERVIEW
+===================================================================================
+
+ARCHITECTURE:
+-------------
+┌─────────────┐
+│   Frontend  │  React App (Port 5173)
+│   (React)   │
+└──────┬──────┘
+       │ HTTP/REST (JSON)
+       │ Authorization: Bearer <JWT_TOKEN>
+       │
+┌──────▼──────────────────────────────────────────────────────┐
+│                    BACKEND SERVER                            │
+│              Express.js (Port 8080)                          │
+│                                                              │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐     │
+│  │   Routes     │  │  Middleware  │  │   Services   │     │
+│  │              │  │              │  │              │     │
+│  │ - auth.js    │  │ - auth.js    │  │ - aiService  │     │
+│  │ - jobs.js    │  │ (JWT verify) │  │ - background │     │
+│  │ - resume.js  │  │              │  │   Jobs.js    │     │
+│  │ - interview  │  │              │  │              │     │
+│  │ - etc.       │  │              │  │              │     │
+│  └──────┬───────┘  └──────┬───────┘  └──────┬───────┘     │
+│         │                 │                 │              │
+│         └─────────────────┴─────────────────┘              │
+│                            │                                │
+│  ┌─────────────────────────▼──────────────────────────┐   │
+│  │                  MODELS                             │   │
+│  │  (Mongoose Schemas)                                 │   │
+│  │  - User.js                                          │   │
+│  │  - Job.js                                           │   │
+│  │  - Application.js                                   │   │
+│  │  - Company.js                                       │   │
+│  └─────────────────────────┬──────────────────────────┘   │
+└────────────────────────────┼───────────────────────────────┘
+                             │
+                    ┌────────▼────────┐
+                    │    MongoDB      │
+                    │  (Port 27017)   │
+                    └─────────────────┘
+
+===================================================================================
+                         SECTION 2: SERVER SETUP
+===================================================================================
+
+📁 FILE: backend/server.js
+---------------------------
+
+WHAT IT DOES:
+-------------
+1. Creates Express application
+2. Configures middleware (CORS, body parsing, timeouts)
+3. Connects to MongoDB (with retry logic)
+4. Registers all API routes
+5. Starts HTTP server on port 8080
+
+MIDDLEWARE CHAIN:
+-----------------
+Request arrives → CORS → Body Parser → Timeout → Logging → Routes → Response
+
+CORS CONFIGURATION:
+-------------------
+Allows frontend (port 5173) to make requests:
+- origin: ['http://localhost:5173', 'http://localhost:3000']
+- credentials: true (allows cookies)
+
+BODY PARSERS:
+-------------
+- express.json() - Parses JSON request bodies (limit: 10MB)
+- express.urlencoded() - Parses form data (limit: 10MB)
+
+TIMEOUT MIDDLEWARE:
+-------------------
+- Regular requests: 30 seconds timeout
+- AI requests (/api/interview, /api/resume/upload): 5 minutes timeout
+- Prevents server from hanging on slow requests
+
+MONGODB CONNECTION:
+-------------------
+- Connection string: mongodb://localhost:27017/jobportal
+- Retry logic: 5 attempts with 3-second delays
+- Graceful handling: Server continues running even if MongoDB fails
+
+ROUTE REGISTRATION:
+-------------------
+app.use('/api/auth', require('./routes/auth'));
+app.use('/api/jobs', require('./routes/jobs'));
+app.use('/api/resume', require('./routes/resume'));
+app.use('/api/recommendations', require('./routes/recommendations'));
+app.use('/api/applications', require('./routes/applications'));
+app.use('/api/interview', require('./routes/interview'));
+app.use('/api/ai', require('./routes/ai'));
+app.use('/api/company', require('./routes/company'));
+
+ERROR HANDLING:
+---------------
+- 404 handler: Returns JSON error for unknown routes
+- Global error handler: Catches all unhandled errors
+- Logs errors with stack traces (development only)
+
+GRACEFUL SHUTDOWN:
+------------------
+- SIGTERM/SIGINT handlers: Close MongoDB connection before exit
+- 10-second grace period for ongoing requests
+
+===================================================================================
+                         SECTION 3: AUTHENTICATION
+===================================================================================
+
+📁 FILE: backend/routes/auth.js
+--------------------------------
+
+REGISTER ENDPOINT:
+------------------
+POST /api/auth/register
+
+FLOW:
+-----
+1. Validates input (name, email, password) using express-validator
+2. Checks if user already exists (MongoDB query by email)
+3. Creates new User document with hashed password
+4. Generates JWT token (expires in 7 days)
+5. Returns { token, user }
+
+WHAT HAPPENS:
+-------------
+- User submits form → Backend validates → Creates user → Returns token
+- Password is automatically hashed by User model (pre-save hook)
+- Token is signed with JWT_SECRET from .env
+
+LOGIN ENDPOINT:
+---------------
+POST /api/auth/login
+
+FLOW:
+-----
+1. Validates input (email, password)
+2. Finds user by email in MongoDB
+3. Compares password using bcrypt (User.comparePassword method)
+4. If match → Generate JWT token
+5. Returns { token, user }
+
+WHAT HAPPENS:
+-------------
+- User submits credentials → Backend finds user → Compares password → Returns token
+- If password wrong → Returns 401 error
+- If user not found → Returns 401 error
+
+GET CURRENT USER:
+-----------------
+GET /api/auth/me (Protected route)
+
+FLOW:
+-----
+1. auth middleware verifies JWT token
+2. Extracts userId from token
+3. Finds user in MongoDB
+4. Returns user data
+
+WHAT HAPPENS:
+-------------
+- Request with token → Middleware verifies → Returns user data
+- If token invalid → Middleware returns 401 error
+
+📁 FILE: backend/middleware/auth.js
+------------------------------------
+
+WHAT IT DOES:
+-------------
+Verifies JWT token and attaches user to request.
+
+FLOW:
+-----
+1. Extracts token from Authorization header
+2. Verifies token using JWT_SECRET
+3. Extracts userId from token
+4. Finds user in MongoDB
+5. Attaches user to req.user
+6. Calls next() to continue
+
+WHAT HAPPENS:
+-------------
+- Valid token → User attached to req.user → Route handler executes
+- Invalid token → Returns 401 error → Route handler never executes
+
+USAGE:
+------
+router.get('/dashboard', auth, async (req, res) => {
+  // req.user is available here (set by middleware)
+  const userId = req.user._id;
+});
+
+===================================================================================
+                         SECTION 4: DATABASE MODELS
+===================================================================================
+
+📁 FILE: backend/models/User.js
+--------------------------------
+
+SCHEMA FIELDS:
+--------------
+- name: String (required, trimmed)
+- email: String (required, unique, lowercase, trimmed)
+- password: String (required, minlength 6, hashed before save)
+- role: String (enum: 'user' or 'hirer', default: 'user')
+- resumeId: String (Qdrant PDF ID, null if no resume)
+- profile: Object (completion percentages)
+- performance: Object (application metrics)
+- hasInternship: Boolean (default: false)
+- resumeData: Mixed (extracted resume data from AI)
+
+PRE-SAVE HOOK:
+--------------
+Automatically hashes password before saving:
+- Checks if password was modified
+- Hashes using bcrypt (10 salt rounds)
+- Stores hashed password (original never stored)
+
+METHODS:
+--------
+- comparePassword(candidatePassword): Compares plain text with hashed password
+
+INDEXES:
+--------
+- email: Unique index (fast lookups, prevents duplicates)
+
+📁 FILE: backend/models/Job.js
+-------------------------------
+
+SCHEMA FIELDS:
+--------------
+- company: String (required)
+- companyLogo: String (optional)
+- title: String (required)
+- location: String (required)
+- jobMode: String (enum: 'On-Site', 'Remote', 'Hybrid', 'Work From Home')
+- salary: Object (min, max, currency, display)
+- description: String (required, full job description)
+- skills: Array (required skills)
+- experience: Object (min, max, display)
+- qualifications: Object (basic, preferred)
+- jobType: String (enum: 'Full-time', 'Part-time', 'Contract', 'Internship')
+- isInternship: Boolean (default: false)
+- hirerId: ObjectId (ref: User)
+
+INDEXES:
+--------
+- Text index on title, description, company (for search)
+- Index on hirerId (for hirer's job queries)
+
+📁 FILE: backend/models/Application.js
+---------------------------------------
+
+SCHEMA FIELDS:
+--------------
+- userId: ObjectId (ref: User, required)
+- jobId: ObjectId (ref: Job, required)
+- status: String (enum: 'pending', 'shortlisted', 'rejected', default: 'pending')
+- fitScore: Number (AI match score, 0-100)
+- fitDetails: Object (breakdown, strengths, gaps)
+- appliedAt: Date (default: now)
+
+INDEXES:
+--------
+- Compound index on { userId: 1, jobId: 1 } (unique - prevents duplicate applications)
+
+===================================================================================
+                         SECTION 5: ROUTES
+===================================================================================
+
+📁 FILE: backend/routes/jobs.js
+--------------------------------
+
+GET /api/jobs:
+--------------
+Returns paginated list of jobs.
+
+QUERY PARAMETERS:
+-----------------
+- page: Page number (default: 1)
+- limit: Jobs per page (default: 6)
+- jobType: Filter by type ('Jobs' or 'Internships')
+
+FLOW:
+-----
+1. Parse query parameters (page, limit, jobType)
+2. Build MongoDB query (filter by jobType if specified)
+3. Count total jobs (for pagination)
+4. Fetch jobs with skip/limit (pagination)
+5. If user has resume → Calculate fit scores for current page
+6. Sort by fit score (if available)
+7. Return { jobs, total, totalPages, currentPage }
+
+WHAT HAPPENS:
+-------------
+- User views page 1 → Fetches 6 jobs → Calculates fit scores → Returns sorted list
+- User clicks next → Fetches next 6 jobs → Calculates fit scores → Returns sorted list
+
+POST /api/jobs:
+---------------
+Creates new job (hirer only).
+
+FLOW:
+-----
+1. Validates required fields
+2. Gets company name from companyId
+3. Creates Job document
+4. Saves to MongoDB
+5. Returns created job
+
+GET /api/jobs/:id:
+------------------
+Returns single job details.
+
+FLOW:
+-----
+1. Finds job by ID
+2. If user has resume → Calculates fit score
+3. Returns job with fit score
+
+📁 FILE: backend/routes/recommendations.js
+-------------------------------------------
+
+GET /api/recommendations:
+--------------------------
+Returns top 5 job recommendations.
+
+FLOW:
+-----
+1. Checks if user has resume (required)
+2. Gets jobs user has already applied to (exclude from recommendations)
+3. Gets all other jobs
+4. Gets cached fit scores from MongoDB
+5. Calculates missing scores on-demand
+6. Sorts by fit score (highest first)
+7. Filters out 0% scores
+8. Prioritizes jobs with 60%+ fit score
+9. If user has no internship → Prioritizes internships
+10. Returns top 5 recommendations
+
+WHAT HAPPENS:
+-------------
+- User views dashboard → Fetches recommendations → Shows top 5 best matches
+- Jobs sorted by fit score → Best matches shown first
+
+📁 FILE: backend/routes/resume.js
+----------------------------------
+
+POST /api/resume/upload:
+------------------------
+Uploads and processes resume.
+
+FLOW:
+-----
+1. Receives PDF file (multipart/form-data)
+2. Validates file (must be PDF)
+3. Converts to buffer
+4. Calls AI service to upload and process
+5. AI service: OCR → Extract text → Create embeddings → Store in Qdrant
+6. AI service: Extract structured data (skills, experience, education)
+7. Updates user document with resumeId and resumeData
+8. Triggers background job to calculate fit scores for all jobs
+9. Returns success response
+
+WHAT HAPPENS:
+-------------
+- User uploads PDF → Backend sends to AI service → AI processes → User updated → Fit scores calculated
+
+📁 FILE: backend/routes/interview.js
+-------------------------------------
+
+GET /api/interview/:applicationId:
+-----------------------------------
+Generates interview preparation guide.
+
+FLOW:
+-----
+1. Validates applicationId
+2. Finds application (with job and user populated)
+3. Checks if user owns application (security)
+4. Checks if user has resume
+5. Calls AI service to generate interview prep (3-5 minutes)
+6. Returns structured data (company info, rounds, DSA prep, etc.)
+
+WHAT HAPPENS:
+-------------
+- User clicks "Interview Prep" → Backend calls AI service → AI generates guide (3-5 min) → Returns data
+
+===================================================================================
+                         SECTION 6: SERVICES
+===================================================================================
+
+📁 FILE: backend/services/aiService.js
+---------------------------------------
+
+WHAT IT DOES:
+-------------
+Centralized client for AI service communication.
+Handles all API calls to FastAPI service (port 8001).
+
+KEY METHODS:
+------------
+- uploadPDF(): Uploads PDF to AI service
+- extractResumeData(): Extracts structured data from resume
+- calculateFitScore(): Calculates job-resume match score
+- generateInterviewPrep(): Generates interview preparation guide
+
+RETRY LOGIC:
+------------
+- Automatic retry on connection errors (2 retries)
+- Exponential backoff (1s, 2s delays)
+- Health check caching (30 seconds)
+
+TIMEOUTS:
+---------
+- Regular operations: 30 seconds
+- Long operations (interview prep): 5 minutes
+
+HEALTH CHECKS:
+--------------
+- Checks AI service health before operations
+- Caches health status (30 seconds)
+- Logs warnings if service unavailable
+
+📁 FILE: backend/services/backgroundJobs.js
+---------------------------------------------
+
+WHAT IT DOES:
+-------------
+Handles background processing tasks.
+
+calculateAllJobMatches():
+--------------------------
+Calculates fit scores for all jobs (background job).
+
+FLOW:
+-----
+1. Gets user's resume data
+2. Gets all jobs from database
+3. Calls AI service batch endpoint
+4. Saves all scores to MongoDB (caching)
+5. Takes 2-3 minutes for 92 jobs
+
+WHEN IT RUNS:
+-------------
+- After user uploads resume
+- When user clicks "Recalculate AI Match Scores"
+
+getCachedScores():
+------------------
+Retrieves cached fit scores from MongoDB.
+
+FLOW:
+-----
+1. Queries FitScore collection
+2. Returns object: { jobId: { fitScore, breakdown, ... }, ... }
+
+WHAT HAPPENS:
+-------------
+- Fast lookup (no AI processing needed)
+- Returns scores calculated earlier
+
+===================================================================================
+                         SECTION 7: ERROR HANDLING
+===================================================================================
+
+GLOBAL ERROR HANDLER:
+---------------------
+Catches all unhandled errors:
+- Logs error with stack trace
+- Returns 500 error to client
+- Hides stack trace in production
+
+REQUEST TIMEOUT:
+----------------
+- Regular requests: Cancelled after 30 seconds
+- AI requests: Cancelled after 5 minutes
+- Returns 503 Service Unavailable
+
+MONGODB ERRORS:
+---------------
+- Connection errors: Retry logic (5 attempts)
+- Query errors: Caught and returned as 500 error
+- Validation errors: Returned as 400 error
+
+AI SERVICE ERRORS:
+------------------
+- Connection refused: Retry with backoff
+- Timeout: Return error to client
+- API errors: Return error message from AI service
+
+===================================================================================
+                         SECTION 8: SECURITY
+===================================================================================
+
+PASSWORD SECURITY:
+------------------
+- Passwords hashed with bcrypt (10 salt rounds)
+- Never stored in plain text
+- comparePassword() method for secure comparison
+
+JWT TOKENS:
+-----------
+- Signed with JWT_SECRET (from .env)
+- Expires in 7 days
+- Contains userId (no sensitive data)
+
+AUTHORIZATION:
+-------------
+- Protected routes require valid JWT token
+- auth middleware verifies token
+- User ownership checks (user can only access their own data)
+
+INPUT VALIDATION:
+-----------------
+- express-validator for request validation
+- Mongoose schema validation
+- Sanitization (trim, lowercase)
+
+CORS:
+-----
+- Only allows requests from frontend URLs
+- Prevents unauthorized cross-origin requests
+
+===================================================================================
+                         SECTION 9: PERFORMANCE
+===================================================================================
+
+CACHING:
+--------
+- Fit scores cached in MongoDB
+- Health checks cached (30 seconds)
+- Reduces AI service calls
+
+PAGINATION:
+-----------
+- Jobs loaded 6 per page
+- Fit scores calculated only for current page
+- Faster initial load
+
+BACKGROUND JOBS:
+----------------
+- Fit scores calculated in background
+- Doesn't block user requests
+- User can continue using app while scores calculate
+
+DATABASE INDEXES:
+-----------------
+- email: Unique index (fast lookups)
+- userId + jobId: Compound index (fast application queries)
+- Text index on job fields (fast search)
+
+===================================================================================
+                              END OF BACKEND ARCHITECTURE NOTES
+===================================================================================
+
+Key Takeaways:
+- Express.js server with MongoDB
+- JWT authentication
+- RESTful API design
+- AI service integration
+- Background job processing
+- Caching for performance
+- Comprehensive error handling
+

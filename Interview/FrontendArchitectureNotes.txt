@@ -1,0 +1,584 @@
+===================================================================================
+                    🎨 FRONTEND ARCHITECTURE & IMPLEMENTATION
+===================================================================================
+
+📖 WHAT IS THIS?
+---------------
+This document explains the complete frontend architecture, how React components work,
+state management, routing, and API integration.
+
+===================================================================================
+                         SECTION 1: OVERVIEW
+===================================================================================
+
+ARCHITECTURE:
+-------------
+┌─────────────────────────────────────────────────────────┐
+│              REACT APPLICATION (Port 5173)               │
+│                                                          │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐ │
+│  │   Routing    │  │   Context    │  │  Components  │ │
+│  │              │  │              │  │              │ │
+│  │ React Router │  │ AuthContext  │  │   Pages      │ │
+│  │              │  │              │  │   UI         │ │
+│  └──────┬───────┘  └──────┬───────┘  └──────┬───────┘ │
+│         │                 │                 │          │
+│         └─────────────────┴─────────────────┘          │
+│                            │                           │
+│  ┌─────────────────────────▼──────────────────────────┐│
+│  │                  API LAYER                        ││
+│  │  (Axios with interceptors)                         ││
+│  │  - Automatic token injection                       ││
+│  │  - Error handling                                  ││
+│  │  - Request/response interceptors                  ││
+│  └─────────────────────────┬──────────────────────────┘│
+└────────────────────────────┼───────────────────────────┘
+                             │ HTTP/REST
+                             │ Authorization: Bearer <TOKEN>
+                             │
+                    ┌────────▼────────┐
+                    │   Backend API   │
+                    │  (Port 8080)    │
+                    └─────────────────┘
+
+TECH STACK:
+-----------
+- React 18 (UI library)
+- React Router (routing)
+- Axios (HTTP client)
+- React Context (state management)
+- Vite (build tool)
+
+===================================================================================
+                         SECTION 2: PROJECT STRUCTURE
+===================================================================================
+
+FOLDER STRUCTURE:
+-----------------
+frontend/
+├── src/
+│   ├── App.jsx              # Main app component (routing)
+│   ├── main.jsx             # Entry point
+│   ├── context/
+│   │   └── AuthContext.jsx # Authentication state
+│   ├── pages/
+│   │   ├── Landing.jsx      # Landing page
+│   │   ├── Login.jsx       # Login page
+│   │   ├── Register.jsx    # Registration page
+│   │   ├── Dashboard.jsx   # User dashboard
+│   │   ├── Jobs.jsx        # Browse all jobs
+│   │   ├── JobDetails.jsx  # Job details page
+│   │   └── InterviewPrepPage.jsx # Interview prep page
+│   ├── components/
+│   │   ├── Header.jsx      # Navigation header
+│   │   ├── ProtectedRoute.jsx # Route protection
+│   │   └── ui/             # Reusable UI components
+│   └── hooks/              # Custom React hooks
+└── package.json
+
+===================================================================================
+                         SECTION 3: ROUTING
+===================================================================================
+
+📁 FILE: frontend/src/App.jsx
+------------------------------
+
+WHAT IT DOES:
+-------------
+Sets up all routes for the application.
+
+ROUTE STRUCTURE:
+----------------
+- / → Landing page (public)
+- /login → Login page (public)
+- /register → Registration page (public)
+- /dashboard → Dashboard (protected - requires login)
+- /jobs → Browse all jobs (public)
+- /jobs/:id → Job details (public)
+- /interview/:applicationId → Interview prep (protected)
+- /admin/* → Admin routes (protected, admin only)
+
+PROTECTED ROUTES:
+-----------------
+Wrapped in <ProtectedRoute> component:
+- Checks if user is logged in
+- Redirects to /login if not authenticated
+- Renders component if authenticated
+
+CODE FLOW:
+----------
+<Router>
+  <Routes>
+    <Route path="/" element={<Landing />} />
+    <Route path="/dashboard" element={
+      <ProtectedRoute>
+        <Dashboard />
+      </ProtectedRoute>
+    } />
+  </Routes>
+</Router>
+
+WHAT HAPPENS:
+-------------
+- User navigates to /dashboard → ProtectedRoute checks auth → Shows Dashboard or redirects to /login
+
+===================================================================================
+                         SECTION 4: AUTHENTICATION
+===================================================================================
+
+📁 FILE: frontend/src/context/AuthContext.jsx
+----------------------------------------------
+
+WHAT IT DOES:
+-------------
+Provides authentication state and functions to all components.
+
+STATE:
+------
+- user: Current user object (null if not logged in)
+- loading: Loading state (true while checking auth)
+- token: JWT token (from localStorage)
+
+FUNCTIONS:
+----------
+- login(email, password): Authenticates user
+- register(name, email, password): Creates account
+- logout(): Clears authentication
+- fetchUser(): Refreshes user data
+
+HOW IT WORKS:
+-------------
+1. AuthProvider wraps entire app (in App.jsx)
+2. Stores token in localStorage (persists across refreshes)
+3. Sets Authorization header for all API calls
+4. Components use useAuth() hook to access auth state
+
+LOGIN FLOW:
+-----------
+1. User enters email/password
+2. Calls login(email, password)
+3. Sends POST /api/auth/login
+4. Backend returns { token, user }
+5. Stores token in state and localStorage
+6. Sets Authorization header
+7. Updates user state
+8. User is now logged in
+
+REGISTER FLOW:
+--------------
+1. User enters name/email/password
+2. Calls register(name, email, password)
+3. Sends POST /api/auth/register
+4. Backend creates user, returns { token, user }
+5. Same as login (stores token, updates state)
+6. User is registered AND logged in
+
+LOGOUT FLOW:
+------------
+1. Calls logout()
+2. Clears token from state
+3. Clears user from state
+4. Removes token from localStorage
+5. Removes Authorization header
+6. User is logged out
+
+TOKEN PERSISTENCE:
+------------------
+- Token stored in localStorage
+- On page refresh, token is retrieved
+- useEffect validates token and fetches user
+- If token invalid → Logout automatically
+
+📁 FILE: frontend/src/components/ProtectedRoute.jsx
+----------------------------------------------------
+
+WHAT IT DOES:
+-------------
+Protects routes that require authentication.
+
+HOW IT WORKS:
+-------------
+1. Checks if user is logged in (from AuthContext)
+2. If loading → Shows loading spinner
+3. If not logged in → Redirects to /login
+4. If logged in → Renders child component
+
+CODE:
+-----
+const ProtectedRoute = ({ children }) => {
+  const { user, loading } = useAuth();
+  const navigate = useNavigate();
+  
+  useEffect(() => {
+    if (!loading && !user) {
+      navigate("/login");
+    }
+  }, [user, loading]);
+  
+  if (loading) return <div>Loading...</div>;
+  if (!user) return null;
+  
+  return children;
+};
+
+WHAT HAPPENS:
+-------------
+- User tries to access /dashboard → ProtectedRoute checks → Shows Dashboard or redirects
+
+===================================================================================
+                         SECTION 5: API INTEGRATION
+===================================================================================
+
+AXIOS CONFIGURATION:
+--------------------
+Base URL: http://localhost:8080/api
+
+AUTHORIZATION HEADER:
+---------------------
+Automatically added to all requests:
+axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+
+REQUEST INTERCEPTOR:
+--------------------
+Adds token to every request:
+axios.interceptors.request.use((config) => {
+  const token = localStorage.getItem('token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
+RESPONSE INTERCEPTOR:
+---------------------
+Handles 401 errors (unauthorized):
+axios.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      // Token expired or invalid
+      localStorage.removeItem('token');
+      window.location.href = '/login';
+    }
+    return Promise.reject(error);
+  }
+);
+
+API CALL EXAMPLE:
+-----------------
+const fetchJobs = async () => {
+  try {
+    const response = await axios.get('/api/jobs?page=1&limit=6');
+    setJobs(response.data.jobs);
+  } catch (error) {
+    console.error('Error:', error);
+  }
+};
+
+WHAT HAPPENS:
+-------------
+- Component calls API → Axios adds token → Backend validates → Returns data
+- If token invalid → Interceptor redirects to login
+
+===================================================================================
+                         SECTION 6: PAGES
+===================================================================================
+
+📁 FILE: frontend/src/pages/Dashboard.jsx
+------------------------------------------
+
+WHAT IT DOES:
+-------------
+Main user dashboard showing recommendations and applications.
+
+FEATURES:
+---------
+- Profile completion status
+- Top 5 job recommendations (with fit scores)
+- Recent applications
+- Resume upload
+- Recalculate AI match scores button
+
+STATE:
+------
+- recommendations: Array of recommended jobs
+- loading: Loading indicator
+- resumeFile: Selected file
+- uploading: Upload progress
+- appliedJobs: User's applications
+
+USE EFFECTS:
+------------
+1. On mount → Fetches recommendations
+2. On mount → Fetches applied jobs
+3. When user changes → Refetches data
+
+FUNCTIONS:
+----------
+- fetchRecommendations(): Gets top 5 recommendations
+- handleResumeUpload(): Uploads resume to backend
+- handleApply(): Creates application
+- openInterviewPrep(): Navigates to interview prep page
+- recalculateScores(): Triggers background job
+
+WHAT HAPPENS:
+-------------
+- User views dashboard → Fetches recommendations → Shows top 5 jobs
+- User uploads resume → Sends to backend → AI processes → Recommendations update
+
+📁 FILE: frontend/src/pages/Jobs.jsx
+-------------------------------------
+
+WHAT IT DOES:
+-------------
+Displays all jobs with pagination (6 per page).
+
+FEATURES:
+---------
+- Pagination (prev/next buttons, page numbers)
+- Tab switching (Jobs vs Internships)
+- AI match scores (if resume uploaded)
+- Apply button
+- Search (future feature)
+
+STATE:
+------
+- jobs: Array of jobs for current page
+- loading: Loading indicator
+- currentPage: Current page number
+- totalPages: Total number of pages
+- activeTab: 'Jobs' or 'Internships'
+
+PAGINATION:
+-----------
+- JOBS_PER_PAGE = 6 (constant)
+- Fetches jobs for current page only
+- Smooth scroll to top on page change
+
+FETCH JOBS:
+-----------
+1. Builds query string (page, limit, jobType)
+2. Calls GET /api/jobs?page=1&limit=6
+3. Backend returns jobs with fit scores
+4. Updates state
+
+WHAT HAPPENS:
+-------------
+- User views page 1 → Fetches 6 jobs → Displays with fit scores
+- User clicks next → Fetches next 6 jobs → Updates display
+
+📁 FILE: frontend/src/pages/InterviewPrepPage.jsx
+---------------------------------------------------
+
+WHAT IT DOES:
+-------------
+Displays AI-generated interview preparation guide.
+
+FEATURES:
+---------
+- Loading animation with progress steps
+- Company information
+- Interview rounds breakdown
+- DSA preparation (collapsible)
+- System Design preparation (collapsible)
+- Behavioral preparation (collapsible)
+- Common questions with answers
+
+STATE:
+------
+- loading: Loading indicator
+- currentStep: Progress step (0-5)
+- preparation: Full interview prep data
+- error: Error message
+- expandedSections: Which sections are expanded
+
+LOADING STEPS:
+--------------
+1. "Researching Company..." (Company research)
+2. "Analyzing Rounds..." (Round analysis)
+3. "DSA Preparation..." (DSA content)
+4. "System Design..." (System design content)
+5. "Behavioral Prep..." (Behavioral content)
+6. "Common Questions..." (Q&A generation)
+
+FETCH FLOW:
+-----------
+1. Component mounts → Extracts applicationId from URL
+2. Calls GET /api/interview/:applicationId
+3. Backend calls AI service (3-5 minutes)
+4. Updates progress steps during loading
+5. Displays content when ready
+
+WHAT HAPPENS:
+-------------
+- User clicks "Interview Prep" → Navigates to page → Shows loading → AI generates guide → Displays content
+
+===================================================================================
+                         SECTION 7: COMPONENTS
+===================================================================================
+
+📁 FILE: frontend/src/components/Header.jsx
+--------------------------------------------
+
+WHAT IT DOES:
+-------------
+Navigation header with user menu.
+
+FEATURES:
+---------
+- Logo and navigation links
+- User menu (if logged in)
+- Logout button
+- Responsive design
+
+📁 FILE: frontend/src/components/AIMatchModal.jsx
+---------------------------------------------------
+
+WHAT IT DOES:
+-------------
+Modal showing detailed AI match analysis.
+
+FEATURES:
+---------
+- Fit score breakdown (skills, experience, education, alignment)
+- Strengths list
+- Gaps list
+- Recommendation text
+
+WHAT HAPPENS:
+-------------
+- User clicks "View AI Match" → Modal opens → Shows detailed analysis
+
+===================================================================================
+                         SECTION 8: STATE MANAGEMENT
+===================================================================================
+
+REACT HOOKS:
+------------
+- useState: Component-level state
+- useEffect: Side effects (API calls, subscriptions)
+- useContext: Access context (AuthContext)
+- useRef: Persistent values (prevent duplicate calls)
+
+AUTH CONTEXT:
+-------------
+Global state for authentication:
+- Available to all components
+- No prop drilling needed
+- Persists across page refreshes (localStorage)
+
+LOCAL STATE:
+-----------
+Each component manages its own state:
+- Dashboard: recommendations, appliedJobs
+- Jobs: jobs, currentPage, totalPages
+- InterviewPrepPage: preparation, loading
+
+NO REDUX:
+---------
+Simple state management with Context API:
+- AuthContext for authentication
+- Local state for component data
+- No complex state management needed
+
+===================================================================================
+                         SECTION 9: ERROR HANDLING
+===================================================================================
+
+API ERRORS:
+-----------
+Try-catch blocks around API calls:
+try {
+  const response = await axios.get('/api/jobs');
+  setJobs(response.data.jobs);
+} catch (error) {
+  console.error('Error:', error);
+  setError(error.message);
+}
+
+401 ERRORS:
+-----------
+Handled by Axios interceptor:
+- Token expired → Redirects to login
+- Token invalid → Redirects to login
+
+NETWORK ERRORS:
+---------------
+- Connection refused → Error message shown
+- Timeout → Error message shown
+- Server error → Error message shown
+
+USER FEEDBACK:
+--------------
+- Loading spinners during API calls
+- Error messages displayed to user
+- Success notifications (optional)
+
+===================================================================================
+                         SECTION 10: PERFORMANCE
+===================================================================================
+
+PAGINATION:
+-----------
+- Loads only 6 jobs per page
+- Faster initial load
+- Less data transfer
+
+LAZY LOADING:
+-------------
+- Components loaded on demand
+- Reduces initial bundle size
+
+MEMOIZATION:
+-------------
+- useCallback for stable function references
+- useRef to prevent duplicate API calls
+- React.memo for expensive components (if needed)
+
+OPTIMIZATION:
+-------------
+- AbortController to cancel requests
+- Prevents duplicate API calls
+- Cleanup on component unmount
+
+===================================================================================
+                         SECTION 11: USER EXPERIENCE
+===================================================================================
+
+LOADING STATES:
+---------------
+- Spinners during API calls
+- Progress indicators for long operations
+- Skeleton screens (optional)
+
+ERROR HANDLING:
+---------------
+- Clear error messages
+- Retry buttons
+- Graceful degradation
+
+NAVIGATION:
+-----------
+- Smooth page transitions
+- Back button support
+- URL-based routing
+
+RESPONSIVE DESIGN:
+------------------
+- Works on mobile and desktop
+- Tailwind CSS for styling
+- Flexible layouts
+
+===================================================================================
+                              END OF FRONTEND ARCHITECTURE NOTES
+===================================================================================
+
+Key Takeaways:
+- React with functional components and hooks
+- React Router for navigation
+- Context API for global state
+- Axios for API calls with interceptors
+- Protected routes for authentication
+- Pagination for performance
+- Comprehensive error handling
+

@@ -1,0 +1,499 @@
+===================================================================================
+                    🤖 AI SERVICE ARCHITECTURE & IMPLEMENTATION
+===================================================================================
+
+📖 WHAT IS THIS?
+---------------
+This document explains the complete AI service architecture, how each component works,
+and how they integrate with the backend and frontend.
+
+===================================================================================
+                         SECTION 1: OVERVIEW
+===================================================================================
+
+ARCHITECTURE:
+-------------
+┌─────────────┐
+│   Frontend  │  React App (Port 5173)
+│   (React)   │
+└──────┬──────┘
+       │ HTTP/REST
+       │
+┌──────▼──────────────────────────────────────────────────────┐
+│                    BACKEND SERVER                            │
+│              Express.js (Port 8080)                          │
+│                                                              │
+│  ┌──────────────┐                                            │
+│  │ aiService.js │  Calls AI service endpoints                │
+│  └──────┬───────┘                                            │
+└─────────┼────────────────────────────────────────────────────┘
+          │ HTTP/REST
+          │
+┌─────────▼────────────────────────────────────────────────────┐
+│                    AI SERVICE                                │
+│              FastAPI/Python (Port 8001)                      │
+│                                                              │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐     │
+│  │ rag_service  │  │ agent_service│  │ tools_service│     │
+│  │              │  │              │  │              │     │
+│  │ - PDF upload │  │ - Web search │  │ - STT         │     │
+│  │ - RAG query  │  │ - Agents     │  │ - OCR         │     │
+│  │ - Interview  │  │              │  │ - Search      │     │
+│  │   prep       │  │              │  │              │     │
+│  └──────┬───────┘  └──────┬───────┘  └──────┬───────┘     │
+│         │                 │                 │              │
+│         └─────────────────┴─────────────────┘              │
+│                            │                                │
+│  ┌─────────────────────────▼──────────────────────────┐   │
+│  │                  EXTERNAL SERVICES                    │   │
+│  │  - OpenAI API (GPT-4, Whisper, Embeddings)          │   │
+│  │  - Qdrant Vector DB (Port 6333)                      │   │
+│  │  - Tavily API (Web search)                          │   │
+│  │  - MongoDB (Checkpointing)                          │   │
+│  └─────────────────────────────────────────────────────┘   │
+└──────────────────────────────────────────────────────────────┘
+
+TECH STACK:
+-----------
+- FastAPI (Python web framework)
+- LangChain (LLM orchestration)
+- LangGraph (Workflow management)
+- OpenAI (GPT-4, Whisper, Embeddings)
+- Qdrant (Vector database)
+- Tavily (AI-optimized web search)
+- MongoDB (Conversation checkpointing)
+
+===================================================================================
+                         SECTION 2: MAIN SERVER
+===================================================================================
+
+📁 FILE: AI/main.py
+-------------------
+
+WHAT IT DOES:
+-------------
+Main entry point for the FastAPI AI service.
+
+FLOW:
+-----
+1. Loads environment variables (.env file)
+2. Creates FastAPI application
+3. Includes routers (rag_service, agent_service, tools_service, fast_fit_score)
+4. Starts uvicorn server on port 8001
+
+ROUTERS INCLUDED:
+-----------------
+- rag_router: PDF upload, RAG query, interview prep
+- agent_router: AI agents with tools
+- tools_router: STT, OCR, web search
+- fast_router: Batch fit score calculation
+
+HEALTH CHECK:
+-------------
+GET /health - Returns server status
+
+===================================================================================
+                         SECTION 3: RAG SERVICE
+===================================================================================
+
+📁 FILE: AI/rag_service.py
+---------------------------
+
+WHAT IT DOES:
+-------------
+Handles RAG (Retrieval Augmented Generation) operations:
+- PDF upload and indexing
+- Similarity search in vector database
+- Interview preparation generation
+
+RAG PIPELINE:
+-------------
+Step 1: INDEXING (when PDF uploaded)
+   PDF File
+      ↓
+   Extract Text (OCR if needed)
+      ↓
+   Split into Chunks
+      ↓
+   Create Embeddings (OpenAI)
+      ↓
+   Store in Qdrant Vector DB
+
+Step 2: QUERYING (when user asks question)
+   User Question
+      ↓
+   Create Embedding of Question
+      ↓
+   Similarity Search in Qdrant
+      ↓
+   Get Top K Matching Chunks
+      ↓
+   Send (Question + Context) to LLM
+      ↓
+   LLM Generates Answer
+      ↓
+   Return Answer
+
+ENDPOINTS:
+----------
+POST /rag/upload
+- Uploads PDF resume
+- Extracts text (OCR if needed)
+- Creates embeddings
+- Stores in Qdrant
+- Returns PDF ID
+
+POST /rag/query
+- Takes question and PDF ID
+- Searches Qdrant for relevant chunks
+- Sends to LLM with context
+- Returns answer
+
+POST /interview/prepare
+- Generates comprehensive interview prep
+- Uses LangGraph workflow (4 nodes)
+- Returns structured data (company info, rounds, DSA prep, etc.)
+
+MONGODB CHECKPOINTING:
+----------------------
+- Saves conversation state in MongoDB
+- Allows follow-up questions with context
+- Thread ID tracks conversation
+
+===================================================================================
+                         SECTION 4: INTERVIEW PREP GRAPH
+===================================================================================
+
+📁 FILE: AI/interview_prep_graph.py
+------------------------------------
+
+WHAT IT DOES:
+-------------
+Implements 4-node LangGraph workflow for interview preparation.
+
+WORKFLOW:
+---------
+START → company_research_node → interview_rounds_analyzer_node → 
+        round_by_round_prep_node → common_questions_generator_node → END
+
+NODE 1: COMPANY RESEARCH
+------------------------
+- Searches web for company information
+- Finds interview experiences (Reddit, Glassdoor, LeetCode)
+- Determines role level (Fresher, SDE-1, SDE-2, Senior)
+- Returns company info and interview links
+
+NODE 2: INTERVIEW ROUNDS ANALYZER
+----------------------------------
+- Analyzes typical interview process
+- Determines rounds (DSA, System Design, Behavioral)
+- Estimates number of rounds
+- Returns round structure
+
+NODE 3: ROUND-BY-ROUND PREP
+----------------------------
+- Generates content for each round:
+  - DSA Prep: Topics, questions, difficulty level
+  - System Design Prep: Concepts, patterns (if applicable)
+  - Behavioral Prep: STAR stories, company values
+- Role-specific (different for SDE-1 vs SDE-2)
+
+NODE 4: COMMON QUESTIONS GENERATOR
+-----------------------------------
+- Generates common interview questions
+- Includes answers based on resume
+- Links to online resources
+- Company-specific questions
+
+OUTPUT STRUCTURE:
+-----------------
+{
+  "company_info": "...",
+  "role_analysis": "...",
+  "interview_rounds": {...},
+  "dsa_prep": {...},
+  "system_design_prep": {...},
+  "behavioral_prep": {...},
+  "common_questions": [...],
+  "resources": [...],
+  "tips_for_success": "..."
+}
+
+===================================================================================
+                         SECTION 5: FIT SCORE CALCULATION
+===================================================================================
+
+📁 FILE: AI/fast_fit_score.py
+------------------------------
+
+WHAT IT DOES:
+-------------
+Fast batch calculation of job-resume match scores.
+
+BATCH PROCESSING:
+-----------------
+- Processes multiple jobs at once (up to 10 per batch)
+- Single LLM call for entire batch (faster than individual)
+- Returns scores for all jobs
+
+SCORING ALGORITHM:
+------------------
+1. Skills Match (40% weight)
+   - Counts skills explicitly mentioned
+   - Partial matches count as 70%
+   - Missing critical skills = penalty
+
+2. Experience Match (30% weight) - MOST IMPORTANT
+   - REAL WORK EXPERIENCE = Jobs at companies
+   - PROJECTS ≠ WORK EXPERIENCE (only 20-30% credit)
+   - Internships = 50% of real experience
+   - No experience for 3+ year roles = 0-20% score
+
+3. Education Match (20% weight)
+   - CS/IT degree = 100%
+   - Related field = 70-80%
+   - Unrelated = 40-50%
+
+4. Overall Alignment (10% weight)
+   - Career trajectory
+   - Role fit
+   - Industry match
+
+REALISTIC SCORE RANGES:
+-----------------------
+- Fresher → Entry-level (0-1 yr): 50-70%
+- Fresher → Mid-level (2-3 yr): 30-50%
+- Fresher → Senior (3+ yr): 20-40%
+- Experienced matching: 70-90%
+- Perfect match: 85-95% (never 100%)
+
+ENDPOINT:
+---------
+POST /fast/batch-fit-scores
+- Input: resume_data, jobs array
+- Output: scores array with fitScore, breakdown, strengths, gaps
+
+===================================================================================
+                         SECTION 6: TOOLS SERVICE
+===================================================================================
+
+📁 FILE: AI/tools_service.py
+------------------------------
+
+WHAT IT DOES:
+-------------
+Provides utility tools for AI operations.
+
+TOOLS AVAILABLE:
+-----------------
+1. STT (Speech-to-Text)
+   - Uses OpenAI Whisper
+   - Converts audio to text
+   - Supports multiple languages
+
+2. OCR (Optical Character Recognition)
+   - Uses Tesseract
+   - Extracts text from images
+   - Preprocessing for better accuracy
+
+3. Web Search
+   - Tavily (primary - AI-optimized)
+   - Exa.ai (secondary - semantic search)
+   - DuckDuckGo (tertiary - unlimited free)
+   - 3-tier fallback strategy
+
+4. Indian Stock Search
+   - Filters to trusted sites (MoneyControl, Screener, ET)
+   - Prevents blog spam
+   - Authentic financial data
+
+5. Weather
+   - Uses wttr.in (free, no API key)
+   - Current weather for any city
+
+6. Date/Time
+   - Current date and time
+   - Multiple formats
+
+SMART WEB SEARCH:
+-----------------
+smart_web_search() function:
+1. Tries Tavily first (best quality)
+2. Falls back to Exa.ai (semantic search)
+3. Falls back to DuckDuckGo (unlimited free)
+4. Always returns something useful
+
+ENDPOINTS:
+----------
+POST /stt/transcribe - Speech to text
+POST /ocr/image - Image to text
+GET /search - Simple web search
+POST /tools/smart-search - AI-optimized search
+POST /tools/indian-stocks - Indian finance search
+GET /tools/weather/{city} - Weather data
+GET /tools/datetime - Current date/time
+POST /tools/news - News search
+
+===================================================================================
+                         SECTION 7: AGENT SERVICE
+===================================================================================
+
+📁 FILE: AI/agent_service.py
+-----------------------------
+
+WHAT IT DOES:
+-------------
+Provides AI agents with tool access.
+
+AGENT WORKFLOW:
+---------------
+1. User query received
+2. Agent analyzes query
+3. Agent decides which tool to use
+4. Agent calls tool
+5. Agent processes result
+6. Agent generates response
+
+TOOLS AVAILABLE TO AGENT:
+-------------------------
+- web_search: General web search
+- indian_stock_search: Finance-specific search
+- get_weather: Weather information
+- get_current_datetime: Date/time
+- search_news: News articles
+
+MEMORY MANAGEMENT:
+------------------
+- MongoDB checkpointing
+- Conversation state persistence
+- Follow-up question support
+
+===================================================================================
+                         SECTION 8: DATA FLOW
+===================================================================================
+
+RESUME UPLOAD FLOW:
+-------------------
+1. Frontend uploads PDF → Backend
+2. Backend sends to AI service → POST /rag/upload
+3. AI service:
+   - Extracts text (OCR if needed)
+   - Creates embeddings
+   - Stores in Qdrant
+   - Extracts structured data (skills, experience, education)
+4. Returns resumeId and resumeData
+5. Backend saves to User document
+6. Triggers background job to calculate fit scores
+
+FIT SCORE CALCULATION FLOW:
+---------------------------
+1. User uploads resume
+2. Background job triggered
+3. Gets all jobs from database
+4. Calls AI service → POST /fast/batch-fit-scores
+5. AI service calculates scores for all jobs
+6. Scores cached in MongoDB
+7. Future requests use cached scores (fast!)
+
+INTERVIEW PREP FLOW:
+--------------------
+1. User clicks "Interview Prep" on application
+2. Frontend calls → GET /api/interview/:applicationId
+3. Backend calls AI service → POST /interview/prepare
+4. AI service:
+   - Runs LangGraph workflow (4 nodes)
+   - Company research (web search)
+   - Round analysis
+   - Content generation (DSA, System Design, Behavioral)
+   - Question generation
+5. Returns structured data
+6. Frontend displays in InterviewPrepPage
+
+===================================================================================
+                         SECTION 9: EXTERNAL SERVICES
+===================================================================================
+
+OPENAI API:
+-----------
+- GPT-4: Interview prep generation, fit score calculation
+- Whisper: Speech-to-text
+- Embeddings: Vector creation for Qdrant
+- API Key required (from .env)
+
+QDRANT VECTOR DB:
+-----------------
+- Stores PDF embeddings
+- Similarity search for RAG
+- Runs on port 6333
+- Collection: jobportal_resumes
+
+TAVILY API:
+-----------
+- AI-optimized web search
+- Used for company research
+- Free tier: 1,000 searches/month
+- API Key required (from .env)
+
+MONGODB:
+--------
+- Conversation checkpointing
+- Database: jobportal
+- Collections: checkpoints, global_user_memory
+
+===================================================================================
+                         SECTION 10: ERROR HANDLING
+===================================================================================
+
+RETRY LOGIC:
+------------
+- Automatic retry on connection errors
+- Exponential backoff
+- Health check caching
+
+TIMEOUTS:
+---------
+- OpenAI API: 60 seconds
+- Web search: 30 seconds
+- Interview prep: 5 minutes (long operation)
+
+FALLBACK STRATEGIES:
+--------------------
+- Tavily → Exa.ai → DuckDuckGo (web search)
+- Batch processing → Individual processing (fit scores)
+- Health check before operations
+
+===================================================================================
+                         SECTION 11: PERFORMANCE
+===================================================================================
+
+BATCH PROCESSING:
+-----------------
+- Processes 10 jobs at once (faster than individual)
+- Single LLM call for batch
+- Reduces API costs
+
+CACHING:
+--------
+- Fit scores cached in MongoDB
+- Health checks cached (30 seconds)
+- Reduces redundant API calls
+
+ASYNC PROCESSING:
+-----------------
+- Interview prep runs in background thread
+- Doesn't block FastAPI event loop
+- Server remains responsive
+
+===================================================================================
+                              END OF AI SERVICE ARCHITECTURE NOTES
+===================================================================================
+
+Key Takeaways:
+- FastAPI server with multiple routers
+- RAG for PDF Q&A
+- LangGraph for interview prep workflow
+- Batch processing for fit scores
+- 3-tier fallback for web search
+- Comprehensive error handling
+- Performance optimizations
+
