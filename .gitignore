@@ -132,3 +132,7 @@ dmypy.json
 # Local configuration
 config.local.js
 config.local.json
+
+# Documentation/Notes (keep local, don't upload)
+Interview/
+plan/
